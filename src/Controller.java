@@ -7,21 +7,21 @@ import java.util.List;
 public class Controller {
 
     public static void main(String [] args){
-       if(args.length != 4){
-           System.out.println("Invalid arguments!");
-           System.exit(1);
-       }
-       try{
-           int cport = Integer.parseInt(args[0]);
-           int r = Integer.parseInt(args[1]);
-           int timeout = Integer.parseInt(args[2]);
-           int balance = Integer.parseInt(args[3]);
-           Controller con = new Controller(cport, r, timeout, balance);
-           con.startServer();
-       }catch (Exception er){
-           System.out.println("Invalid argument type!");
-           System.exit(1);
-       }
+        if(args.length != 4){
+            System.out.println("Invalid arguments!");
+            System.exit(1);
+        }
+        try{
+            int cport = Integer.parseInt(args[0]);
+            int r = Integer.parseInt(args[1]);
+            int timeout = Integer.parseInt(args[2]);
+            int balance = Integer.parseInt(args[3]);
+            Controller con = new Controller(cport, r, timeout, balance);
+            con.startServer();
+        }catch (Exception er){
+            System.out.println("Invalid argument type!");
+            System.exit(1);
+        }
 
     }
 
@@ -44,7 +44,7 @@ public class Controller {
     public void startServer(){
         try{
             ServerSocket ss = new ServerSocket(m_nPort);
-            //ss.setSoTimeout(m_nTimeout);
+
             while(!ss.isClosed()){
                 try{
                     final Socket client = ss.accept();
@@ -74,8 +74,8 @@ public class Controller {
                                             out.println("ERROR ALREADY_EXISTS");
                                             continue;
                                         }
-                                        out.println("ACK");
-                                        doStore(commands[1], Long.parseLong(commands[2]), in);
+
+                                        doStore(commands[1], Long.parseLong(commands[2]), out);
                                     }
                                     else if(commands[0].equals("LOAD") || commands[0].equals("RELOAD")){
                                         FileData fd = indexFile(commands[1]);
@@ -114,8 +114,8 @@ public class Controller {
                             }
                             if(!bStore)
                                 client.close();
-                            }
-                            catch(Exception e){}
+                        }
+                        catch(Exception e){}
                         }
                     }).start();
                 }catch(Exception e){System.out.println("error "+e);}
@@ -132,34 +132,37 @@ public class Controller {
     }
 
 
-    private void doStore(String filename, long file_len, BufferedReader reader){
+    private void doStore(String filename, long file_len, PrintWriter out){
         synchronized (lock) {
             m_IndexFiles.add(new FileData(filename, file_len));
         }
+        String contactPort = "";
         for(DStoreHandler dstore : m_lstDStore){
-            dstore.createFile(filename, file_len);
-
+            //dstore.createFile(filename, file_len);
+            contactPort += " " + dstore.getPort();
         }
-        char[] buffer = new char[1024];
-        int curlen = 0;
-        while(curlen < file_len){
-            try {
-                int readed = reader.read(buffer);
-                curlen += readed;
-                for(DStoreHandler dstore : m_lstDStore){
-
-                    dstore.storeFile(buffer);
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
+        out.println("STORE_TO" + contactPort);
+//        char[] buffer = new char[1024];
+//        int curlen = 0;
+//        while(curlen < file_len){
+//            try {
+//                int readed = reader.read(buffer);
+//                curlen += readed;
+//                for(DStoreHandler dstore : m_lstDStore){
+//
+//                    dstore.storeFile(buffer);
+//                }
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+//        }
         for(DStoreHandler dstore : m_lstDStore){
             dstore.closeFile(filename);
         }
         synchronized (lock) {
             indexFile(filename).bState = true;
         }
+        out.println("STORE_COMPLETE");
     }
 
 
@@ -219,8 +222,8 @@ public class Controller {
             if(!m_dsoc.isClosed()){
                 //dos.println("CLOSE " + filename);
                 try {
-                    String reponse = dis.readLine().trim().split(" ")[0];
-                    if(reponse.equals("CLOSED " + filename))
+                    String reponse = dis.readLine().trim();
+                    if(reponse.equals("COMPLETE " + filename))
                         return true;
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -259,7 +262,7 @@ public class Controller {
         }
 
         public int getPort(){
-            return m_nPort;
+            return this.m_Dport;
         }
 
     }

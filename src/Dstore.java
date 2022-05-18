@@ -28,6 +28,7 @@ public class Dstore {
     private int m_nServerPort;
     private int m_nTimeout;
     private String m_strFolder;
+    private PrintWriter m_ServerWriter;
 
     public Dstore(int dport, int sport, int timeout, String folder){
         m_nDPort = dport;
@@ -46,16 +47,13 @@ public class Dstore {
 
 
                         BufferedReader in = new  BufferedReader(new InputStreamReader(socket.getInputStream()));
-                        PrintWriter out = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()), true);
-                        out.println("JOIN " + m_nDPort);
+                        m_ServerWriter = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()), true);
+                        m_ServerWriter.println("JOIN " + m_nDPort);
                         String line;
                         while((line = in.readLine()) != null){
                             String[] commands = line.trim() .split(" ");
-                            if(commands[0].equals("CREATED")){
-                                storeFile(commands[1], Long.parseLong(commands[2]), in, out);
-                            }
-                            else if(commands[0].equals("REMOVE")){
-                                removeFile(commands[1], out);
+                            if(commands[0].equals("REMOVE")){
+                                removeFile(commands[1], m_ServerWriter);
                             }
                         }
 
@@ -76,16 +74,20 @@ public class Dstore {
     public void storeFile(String filename, long filelen, BufferedReader in,PrintWriter out){
         try {
             FileWriter myWriter = new FileWriter(m_strFolder + "/" + filename);
-            out.println("CREATED");
-            char[] buffer = new char[1024];
-            long curlen = 0;
-            while(curlen < filelen){
-                int readed = in.read(buffer);
-                curlen += readed;
-                myWriter.write(buffer);
-            }
+            out.println("ACK");
+            char[] buffer = new char[(int)filelen];
+            int nreadeed = in.read(buffer);
+            myWriter.write(buffer);
+//            long curlen = 0;
+//            while(curlen < filelen){
+//                int readed = in.read(buffer);
+//                if(readed < 0)
+//                    break;
+//                curlen += readed;
+//                myWriter.write(buffer);
+//            }
             myWriter.close();
-            out.println("CLOSED " + filename);
+            m_ServerWriter.println("COMPLETE " + filename);
         } catch (IOException e) {
             System.out.println("An error occurred.");
             e.printStackTrace();
@@ -96,10 +98,9 @@ public class Dstore {
         try {
             File file = new File(m_strFolder + "/" + filename);
             file.delete();
-            FileWriter myWriter = new FileWriter(m_strFolder + "/" + filename);
             out.println("REMOVE_ACK " + filename);
 
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -107,7 +108,7 @@ public class Dstore {
     public void startStore(){
         try{
             ServerSocket ss = new ServerSocket(m_nDPort);
-            //ss.setSoTimeout(m_nTimeout);
+
             while(!ss.isClosed()){
                 try{
                     final Socket client = ss.accept();
@@ -130,12 +131,16 @@ public class Dstore {
                                         fileInputStream = new FileInputStream(file);
                                         fileInputStream.read(bFile);
                                         fileInputStream.close();
-                                        out.println(bFile);
+                                        client.getOutputStream().write(bFile);
+                                        //out.println(bFile);
                                     }
                                     catch (Exception e)
                                     {
                                         e.printStackTrace();
                                     }
+                                }
+                                else if(commands[0].equals("STORE")){
+                                    storeFile(commands[1], Long.parseLong(commands[2]), in, out);
                                 }
 
 
