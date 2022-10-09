@@ -78,14 +78,6 @@ public class Dstore {
             char[] buffer = new char[(int)filelen];
             int nreadeed = in.read(buffer);
             myWriter.write(buffer);
-//            long curlen = 0;
-//            while(curlen < filelen){
-//                int readed = in.read(buffer);
-//                if(readed < 0)
-//                    break;
-//                curlen += readed;
-//                myWriter.write(buffer);
-//            }
             myWriter.close();
             m_ServerWriter.println("COMPLETE " + filename);
         } catch (IOException e) {
@@ -112,7 +104,7 @@ public class Dstore {
             while(!ss.isClosed()){
                 try{
                     final Socket client = ss.accept();
-
+                    client.setSoTimeout(m_nTimeout);
                     new Thread(new Runnable(){
                         public void run(){try{
                             BufferedReader in = new  BufferedReader(new InputStreamReader(client.getInputStream()));
@@ -132,7 +124,7 @@ public class Dstore {
                                         fileInputStream.read(bFile);
                                         fileInputStream.close();
                                         client.getOutputStream().write(bFile);
-                                        //out.println(bFile);
+
                                     }
                                     catch (Exception e)
                                     {

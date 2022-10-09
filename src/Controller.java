@@ -48,7 +48,7 @@ public class Controller {
             while(!ss.isClosed()){
                 try{
                     final Socket client = ss.accept();
-
+                    client.setSoTimeout(m_nTimeout);
                     new Thread(new Runnable(){
                         public void run(){try{
                             BufferedReader in = new  BufferedReader(new InputStreamReader(client.getInputStream()));
@@ -71,7 +71,7 @@ public class Controller {
                                     }
                                     if(commands[0].equals("STORE")){
                                         if(indexFile(commands[1]) != null){
-                                            out.println("ERROR ALREADY_EXISTS");
+                                            out.println("ERROR_FILE_ALREADY_EXISTS");
                                             continue;
                                         }
 
@@ -98,12 +98,18 @@ public class Controller {
                                             out.println("ERROR_FILE_DOES_NOT_EXIST");
                                             continue;
                                         }
+                                        if(!fd.bState){
+                                            out.println("ERROR_FILE_DOES_NOT_EXIST");
+                                            continue;
+                                        }
                                         doRemove(commands[1]);
                                         out.println("REMOVE_COMPLETE");
                                     }
                                     else if(commands[0].equals("LIST")){
                                         String strlst = "LIST";
                                         for(FileData fd : m_IndexFiles){
+                                            if(!fd.bState)
+                                                continue;
                                             strlst += " " + fd.name;
                                         }
                                         out.println(strlst);
@@ -138,24 +144,9 @@ public class Controller {
         }
         String contactPort = "";
         for(DStoreHandler dstore : m_lstDStore){
-            //dstore.createFile(filename, file_len);
             contactPort += " " + dstore.getPort();
         }
         out.println("STORE_TO" + contactPort);
-//        char[] buffer = new char[1024];
-//        int curlen = 0;
-//        while(curlen < file_len){
-//            try {
-//                int readed = reader.read(buffer);
-//                curlen += readed;
-//                for(DStoreHandler dstore : m_lstDStore){
-//
-//                    dstore.storeFile(buffer);
-//                }
-//            } catch (IOException e) {
-//                e.printStackTrace();
-//            }
-//        }
         for(DStoreHandler dstore : m_lstDStore){
             dstore.closeFile(filename);
         }
@@ -220,7 +211,6 @@ public class Controller {
 
         public boolean closeFile(String filename){
             if(!m_dsoc.isClosed()){
-                //dos.println("CLOSE " + filename);
                 try {
                     String reponse = dis.readLine().trim();
                     if(reponse.equals("COMPLETE " + filename))
